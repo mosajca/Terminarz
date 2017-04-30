@@ -4,123 +4,230 @@ import tkinter.messagebox as msgbox
 import events
 
 
+class ChoiceWidget(tk.Frame, object):
+
+    def __init__(self, parent, name, values):
+        tk.Frame.__init__(self, parent)
+        self.config(borderwidth=3, relief=tk.GROOVE)
+
+        self.label = tk.Label(self, text=name)
+        self.label.pack()
+
+        self.combobox = ttk.Combobox(self, state='readonly')
+        self.combobox['values'] = values
+        self.combobox['justify'] = 'center'
+        self.combobox.current(0)
+        self.combobox.pack()
+
+    def setValues(self, values):
+        self.combobox['values'] = values
+
+    def setCurrent(self, index):
+        self.combobox.current(index)
+
+    def setBind(self, handler):
+        self.combobox.bind("<<ComboboxSelected>>", handler)
+
+    def getChoice(self):
+        return self.combobox.get()
+
+
+class InputWidget(tk.Frame, object):
+
+    def __init__(self, parent, name):
+        tk.Frame.__init__(self, parent)
+        self.config(borderwidth=3, relief=tk.GROOVE)
+
+        self.label = tk.Label(self, text=name)
+        self.label.pack()
+
+        self.entry = tk.Entry(self)
+        self.entry.pack()
+
+    def setText(self, text):
+        self.entry.delete(0, 'end')
+        self.entry.insert(0, text)
+
+    def getInput(self):
+        return self.entry.get()
+
+
+class EventInput(tk.Frame, object):
+
+    def __init__(self, parent):
+        tk.Frame.__init__(self, parent)
+        self.numberOfDays = {2: 28, 4: 30, 6: 30, 9: 30, 11: 30}
+
+        self.year = ChoiceWidget(self, 'rok',
+                                 [str(x) for x in range(2017, 2031)])
+        self.year.setBind(self.setFebruary)
+        self.year.grid(row=0, column=0)
+
+        self.month = ChoiceWidget(self, 'miesiąc',
+                                  [str(x).zfill(2) for x in range(1, 13)])
+        self.month.setBind(self.setNumberOfDays)
+        self.month.grid(row=0, column=1)
+
+        self.day = ChoiceWidget(self, 'dzień',
+                                [str(x).zfill(2) for x in range(1, 32)])
+        self.day.grid(row=0, column=2)
+
+        self.hour = ChoiceWidget(self, 'godzina',
+                                 [str(x).zfill(2) for x in range(24)])
+        self.hour.grid(row=1, column=0)
+
+        self.minute = ChoiceWidget(self, 'minuta',
+                                   [str(x).zfill(2) for x in range(60)])
+        self.minute.grid(row=1, column=1)
+
+        self.priority = ChoiceWidget(self, 'priorytet',
+                                     [x for x in range(1, 6)])
+        self.priority.grid(row=1, column=2)
+
+        self.name = InputWidget(self, 'nazwa')
+        self.name.grid(row=2, column=0, sticky='ew')
+
+        self.category = InputWidget(self, 'kategoria')
+        self.category.grid(row=2, column=1, sticky='ew')
+
+        self.button = tk.Button(self, borderwidth=3, relief=tk.GROOVE)
+        self.button.grid(row=2, column=2, sticky='nsew')
+
+        self.grid()
+
+    def setValues(self, year, month, day, hour, minute,
+                  priority, name, category):
+        self.year.setCurrent(year)
+        self.month.setCurrent(month)
+        self.day.setCurrent(day)
+        self.hour.setCurrent(hour)
+        self.minute.setCurrent(minute)
+        self.priority.setCurrent(priority)
+        self.name.setText(name)
+        self.category.setText(category)
+        self.setFebruary()
+
+    def setButton(self, textOnButton, callback):
+        self.button.configure(text=textOnButton, command=callback)
+
+    def setNumberOfDays(self, event=None):
+        currentMonth = int(self.month.getChoice())
+        currentMax = self.numberOfDays.get(currentMonth, 31)
+        self.day.setValues([str(x).zfill(2) for x in range(1, currentMax + 1)])
+        if int(self.day.getChoice()) > currentMax:
+            self.day.setCurrent(currentMax - 1)
+
+    def setFebruary(self, event=None):
+        if self.isLeapYear(int(self.year.getChoice())):
+            self.numberOfDays[2] = 29
+            self.setNumberOfDays()
+        else:
+            self.numberOfDays[2] = 28
+            self.setNumberOfDays()
+
+    def isLeapYear(self, year):
+        return (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
+
+    def getValues(self):
+        date = '-'.join([self.year.getChoice(), self.month.getChoice(),
+                        self.day.getChoice()])
+        time = ':'.join([self.hour.getChoice(), self.minute.getChoice()])
+        datetime = ' '.join([date, time])
+
+        return (datetime, self.name.getInput(), self.category.getInput(),
+                int(self.priority.getChoice()))
+
+
 class Program(tk.Frame, object):
 
     def __init__(self, parent):
-        super(Program, self).__init__(parent)
+        tk.Frame.__init__(self, parent)
         self.parent = parent
         self.parent.title('Terminarz')
-        self.parent.geometry('1015x300')
+        self.parent.iconphoto(self.parent, tk.PhotoImage(file='icon.png'))
         self.grid()
         self.events = events.Events()
-        self.numberOfDays = {2: 28, 4: 30, 6: 30, 9: 30, 11: 30}
         self.parent.protocol('WM_DELETE_WINDOW', self.close)
+        self.addWindow = None
+        self.modifyWindow = None
         self.gui()
 
     def gui(self):
-        self.button = tk.Button(self, text='dodaj', command=self.addEvent)
-        self.button.grid(row=1, column=3)
+        self.addButton = tk.Button(self, text='dodaj', command=self.addEvent)
+        self.addButton.grid(row=0, column=10, sticky='ew')
+        self.modifyButton = tk.Button(self, text='modyfikuj',
+                                      command=self.modifyEvent)
+        self.modifyButton.grid(row=1, column=10, sticky='ew')
         self.delButton = tk.Button(self, text='usuń', command=self.deleteEvent)
-        self.delButton.grid(row=1, column=4)
+        self.delButton.grid(row=2, column=10, sticky='ew')
 
         self.table = ttk.Treeview(self)
         self.table['columns'] = \
             ('id', 'data i godzina', 'nazwa', 'kategoria', 'priorytet')
         self.table['show'] = 'headings'
+        self.table['displaycolumns'] = \
+            ('data i godzina', 'nazwa', 'kategoria', 'priorytet')
         self.table.heading('id', text='id')
         self.table.heading('nazwa', text='nazwa')
         self.table.heading('data i godzina', text='data i godzina')
         self.table.heading('kategoria', text='kategoria')
         self.table.heading('priorytet', text='priorytet')
-        self.table.grid(row=0, column=0, columnspan=9)
+        self.table.grid(row=0, column=0, rowspan=3, columnspan=9)
 
         self.scrollbar = tk.Scrollbar(self)
         self.scrollbar.configure(command=self.table.yview)
         self.table.configure(yscrollcommand=self.scrollbar.set)
-        self.scrollbar.grid(row=0, column=10, sticky=tk.N+tk.S)
+        self.scrollbar.grid(row=0, column=9, rowspan=3, sticky='ns')
 
         self.getAll()
 
     def addEvent(self):
-        window = tk.Toplevel()
-        window.title("Dodaj wydarzenie")
+        if self.addWindow is None:
+            self.addWindow = tk.Toplevel(self)
+            self.addWindow.title("Dodaj wydarzenie")
+            self.addWindow.protocol('WM_DELETE_WINDOW',
+                                    self.addWindow.withdraw)
+            self.add = EventInput(self.addWindow)
+            self.add.setButton('dodaj',
+                               lambda: self.insert(self.add.getValues()))
+        else:
+            self.add.setValues(0, 0, 0, 0, 0, 0, '', '')
+            self.addWindow.deiconify()
 
-        self.day = tk.Label(window, text='dzień')
-        self.day.grid(row=0, column=0)
+    def modifyEvent(self):
+        event = self.table.item(self.table.focus()).get('values')
+        if(len(event) != 0):
+            pPriority = event[4] - 1
+            pCategory = event[3]
+            pName = event[2]
+            tmp = event[1].split('-')
+            pMonth = int(tmp[1]) - 1
+            tmp2 = tmp[2].split()
+            pDay = int(tmp2[0]) - 1
+            pYear = int(tmp[0]) - 2017
+            tmp3 = tmp2[1].split(':')
+            pHour = int(tmp3[0])
+            pMinute = int(tmp3[1])
+            eId = event[0]
+        else:
+            return
 
-        self.dayVar = tk.StringVar()
-        self.dayC = \
-            ttk.Combobox(window, state='readonly', textvariable=self.dayVar)
-        self.dayC['values'] = tuple([x for x in range(1, 32)])
-        self.dayC.current(0)
-        self.dayC.grid(row=0, column=1)
-
-        self.month = tk.Label(window, text='miesiąc')
-        self.month.grid(row=0, column=2)
-
-        self.monthVar = tk.StringVar()
-        self.monthC = \
-            ttk.Combobox(window, state='readonly', textvariable=self.monthVar)
-        self.monthC['values'] = tuple([x for x in range(1, 13)])
-        self.monthC.current(0)
-        self.monthC.bind("<<ComboboxSelected>>", self.setNumberOfDays)
-        self.monthC.grid(row=0, column=3)
-
-        self.year = tk.Label(window, text='rok')
-        self.year.grid(row=0, column=4)
-
-        self.yearVar = tk.StringVar()
-        self.yearC = \
-            ttk.Combobox(window, state='readonly', textvariable=self.yearVar)
-        self.yearC['values'] = tuple([x for x in range(2017, 2031)])
-        self.yearC.current(0)
-        self.yearC.bind("<<ComboboxSelected>>", self.setFebruary)
-        self.yearC.grid(row=0, column=5)
-
-        self.hour = tk.Label(window, text='godzina')
-        self.hour.grid(row=1, column=0)
-
-        self.hourVar = tk.StringVar()
-        self.hourC = \
-            ttk.Combobox(window, state='readonly', textvariable=self.hourVar)
-        self.hourC['values'] = tuple([self.length2(str(x)) for x in range(24)])
-        self.hourC.current(0)
-        self.hourC.grid(row=1, column=1)
-
-        self.minute = tk.Label(window, text='minuta')
-        self.minute.grid(row=1, column=2)
-
-        self.minuteVar = tk.StringVar()
-        self.minuteC = \
-            ttk.Combobox(window, state='readonly', textvariable=self.minuteVar)
-        self.minuteC['values'] = \
-            tuple([self.length2(str(x)) for x in range(60)])
-        self.minuteC.current(0)
-        self.minuteC.grid(row=1, column=3)
-
-        self.name = tk.Label(window, text='nazwa')
-        self.name.grid(row=2, column=0)
-        self.nameE = tk.Entry(window)
-        self.nameE.grid(row=2, column=1)
-
-        self.category = tk.Label(window, text='kategoria')
-        self.category.grid(row=2, column=2)
-        self.categoryE = tk.Entry(window)
-        self.categoryE.grid(row=2, column=3)
-
-        self.priority = tk.Label(window, text='priorytet')
-        self.priority.grid(row=1, column=4)
-
-        self.priorityVar = tk.StringVar()
-        self.priorityC = \
-            ttk.Combobox(window, state='readonly',
-                         textvariable=self.priorityVar)
-        self.priorityC['values'] = tuple([x for x in range(1, 6)])
-        self.priorityC.current(0)
-        self.priorityC.grid(row=1, column=5)
-
-        self.addB = tk.Button(window, text='dodaj', command=self.insert)
-        self.addB.grid(row=2, column=5)
+        if self.modifyWindow is None:
+            self.modifyWindow = tk.Toplevel(self)
+            self.modifyWindow.title("Modyfikuj wydarzenie")
+            self.modifyWindow.protocol('WM_DELETE_WINDOW',
+                                       self.modifyWindow.withdraw)
+            self.modify = EventInput(self.modifyWindow)
+            self.modify.setValues(pYear, pMonth, pDay, pHour, pMinute,
+                                  pPriority, pName, pCategory)
+            self.modify.setButton('zmień', lambda:
+                                  self.update(eId, self.modify.getValues()))
+        else:
+            self.modify.setValues(pYear, pMonth, pDay, pHour, pMinute,
+                                  pPriority, pName, pCategory)
+            self.modify.setButton('zmień', lambda:
+                                  self.update(eId, self.modify.getValues()))
+            self.modifyWindow.deiconify()
 
     def deleteEvent(self):
         event = self.table.item(self.table.focus()).get('values')
@@ -131,36 +238,13 @@ class Program(tk.Frame, object):
             self.table.delete(*self.table.get_children())
             self.getAll()
 
-    def length2(self, value):
-        if len(value) < 2:
-            return '0' + value
-        else:
-            return value
+    def insert(self, values):
+        self.events.add(*values)
+        self.table.delete(*self.table.get_children())
+        self.getAll()
 
-    def setNumberOfDays(self, event=None):
-        currentMonth = int(self.monthC.get())
-        currentMax = self.numberOfDays.get(currentMonth, 31)
-        self.dayC['values'] = tuple([x for x in range(1, currentMax + 1)])
-        if int(self.dayC.get()) > currentMax:
-            self.dayC.current(currentMax - 1)
-
-    def setFebruary(self, event):
-        currentYear = int(self.yearC.get())
-        if (currentYear % 4 == 0 and currentYear % 100 != 0) or \
-                (currentYear % 400 == 0):
-            self.numberOfDays[2] = 29
-            self.setNumberOfDays()
-        else:
-            self.numberOfDays[2] = 28
-            self.setNumberOfDays()
-
-    def insert(self):
-        date = '-'.join([self.yearC.get(), self.length2(self.monthC.get()),
-                        self.length2(self.dayC.get())])
-        time = ':'.join([self.hourC.get(), self.minuteC.get()])
-        datetime = ' '.join([date, time])
-        self.events.add(datetime, self.nameE.get(),
-                        self.categoryE.get(), self.priorityC.get())
+    def update(self, eId, values):
+        self.events.update(*values, eventId=eId)
         self.table.delete(*self.table.get_children())
         self.getAll()
 

@@ -30,8 +30,22 @@ class Events(object):
         )
         self.connection.commit()
 
-    def delete(self, id):
-        self.cursor.execute('DELETE FROM events WHERE id=?', (id,))
+    def update(self, date, name, category, priority, eventId):
+        self.cursor.execute(
+            '''
+                UPDATE events
+                SET date = ?,
+                    name = ?,
+                    category = ?,
+                    priority = ?
+                WHERE id = ?
+            ''',
+            (date, name, category, priority, eventId)
+        )
+        self.connection.commit()
+
+    def delete(self, eventId):
+        self.cursor.execute('DELETE FROM events WHERE id=?', (eventId,))
         self.connection.commit()
 
     def deleteAll(self):
