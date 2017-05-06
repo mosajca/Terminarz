@@ -52,8 +52,8 @@ class Events(object):
         self.cursor.execute('DELETE FROM events')
         self.connection.commit()
 
-    def selectAll(self):
-        self.cursor.execute('SELECT * FROM events ORDER BY datetime(date)')
+    def executeSelect(self, query):
+        self.cursor.execute(query)
         return self.cursor.fetchall()
 
     def close(self):

@@ -1,6 +1,8 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.messagebox as msgbox
+import calendar
+import datetime
 import events
 
 
@@ -118,15 +120,12 @@ class EventInput(tk.Frame, object):
             self.day.setCurrent(currentMax - 1)
 
     def setFebruary(self, event=None):
-        if self.isLeapYear(int(self.year.getChoice())):
+        if calendar.isleap(int(self.year.getChoice())):
             self.numberOfDays[2] = 29
             self.setNumberOfDays()
         else:
             self.numberOfDays[2] = 28
             self.setNumberOfDays()
-
-    def isLeapYear(self, year):
-        return (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
 
     def getValues(self):
         date = '-'.join([self.year.getChoice(), self.month.getChoice(),
@@ -136,6 +135,146 @@ class EventInput(tk.Frame, object):
 
         return (datetime, self.name.getInput(), self.category.getInput(),
                 int(self.priority.getChoice()))
+
+
+class ShowWidget(tk.Frame, object):
+
+    def __init__(self, parent):
+        tk.Frame.__init__(self, parent)
+
+        self.label = tk.Label(self, text='Pokaż wydarzenia:')
+        self.label.grid(row=0, column=0)
+
+        self.SQL = {
+            1: '''SELECT * FROM events WHERE strftime("%j", date) = {} AND
+                    strftime("%Y", date) = {} ORDER BY datetime(date)''',
+            2: '''SELECT * FROM events WHERE strftime("%W", date) = {} AND
+                    strftime("%Y", date) = {} ORDER BY datetime(date)''',
+            3: '''SELECT * FROM events WHERE strftime("%m", date) = {} AND
+                    strftime("%Y", date) = {} ORDER BY datetime(date)''',
+            4: '''SELECT * FROM events WHERE strftime("%Y", date) = {}
+                    ORDER BY datetime(date)''',
+            5: '''SELECT * FROM events ORDER BY datetime(date)'''
+        }
+
+        self.var = tk.IntVar()
+        self.query = tk.StringVar()
+
+        self.thisDay = \
+            tk.Radiobutton(self, text='dzień', variable=self.var, value=1)
+        self.thisDay.grid(row=0, column=1)
+        self.thisWeek = \
+            tk.Radiobutton(self, text='tydzień', variable=self.var, value=2)
+        self.thisWeek.grid(row=0, column=2)
+        self.thisMonth = \
+            tk.Radiobutton(self, text='miesiąc', variable=self.var, value=3)
+        self.thisMonth.grid(row=0, column=3)
+        self.thisYear = \
+            tk.Radiobutton(self, text='rok', variable=self.var, value=4)
+        self.thisYear.grid(row=0, column=4)
+        self.allEvents = \
+            tk.Radiobutton(self, text='wszystkie', variable=self.var, value=5)
+        self.allEvents.grid(row=0, column=5)
+
+        self.var.trace('w', self.setQuery)
+
+        self.prevEvents = tk.Button(self, text='poprzednie',
+                                    command=lambda: self.setModifiedQuery(-1))
+        self.prevEvents.grid(row=0, column=6, padx=(15, 5))
+        self.nextEvents = tk.Button(self, text='następne'.center(10),
+                                    command=lambda: self.setModifiedQuery(1))
+        self.nextEvents.grid(row=0, column=7)
+
+    def setQuery(self, *args):
+        self.choice = self.var.get()
+        currentDatetime = datetime.datetime.now()
+        self.formatDict = {
+            1: [repr(currentDatetime.strftime("%j")),
+                repr(currentDatetime.strftime("%Y"))],
+            2: [repr(currentDatetime.strftime("%W")),
+                repr(currentDatetime.strftime("%Y"))],
+            3: [repr(currentDatetime.strftime("%m")),
+                repr(currentDatetime.strftime("%Y"))],
+            4: [repr(currentDatetime.strftime("%Y"))]
+        }
+
+        if self.choice == 5:
+            self.prevEvents['state'] = 'disabled'
+            self.nextEvents['state'] = 'disabled'
+            self.query.set(self.SQL[self.choice])
+        else:
+            self.prevEvents['state'] = 'normal'
+            self.nextEvents['state'] = 'normal'
+            self.lastValues = self.formatDict[self.choice]
+            self.query.set(self.SQL[self.choice].
+                           format(*self.formatDict[self.choice]))
+
+    def setNewValues(self, v):
+        if self.choice == 1:
+            dayOfYear = int(eval(self.lastValues[0]))
+            year = int(eval(self.lastValues[1]))
+            lastDay = 366 if calendar.isleap(year) else 365
+            if dayOfYear == 1 and v == -1:
+                if year - 1 != 2000:
+                    self.newValues = \
+                        [repr(str(366 if calendar.isleap(year - 1) else 365)),
+                         repr(str(year - 1))]
+            elif dayOfYear == lastDay and v == 1:
+                if year + 1 != 2101:
+                    self.newValues = [repr('001'), repr(str(year + 1))]
+            else:
+                self.newValues = [repr(str(dayOfYear + v).zfill(3)),
+                                  self.lastValues[1]]
+
+        elif self.choice == 2:
+            weekOfYear = int(eval(self.lastValues[0]))
+            year = int(eval(self.lastValues[1]))
+            firstWeek = int(datetime.datetime(year, 1, 1).strftime("%W"))
+            lastWeek = int(datetime.datetime(year, 12, 31).strftime("%W"))
+            if weekOfYear == firstWeek and v == -1:
+                if year - 1 != 2000:
+                    self.newValues = \
+                        [repr(datetime.datetime(year - 1, 12, 31).
+                         strftime("%W")), repr(str(year - 1))]
+            elif weekOfYear == lastWeek and v == 1:
+                if year + 1 != 2101:
+                    self.newValues = \
+                        [repr(datetime.datetime(year + 1, 1, 1).
+                         strftime("%W").zfill(2)), repr(str(year + 1))]
+            else:
+                self.newValues = \
+                    [repr(str(weekOfYear + v).zfill(2)), self.lastValues[1]]
+
+        elif self.choice == 3:
+            month = int(eval(self.lastValues[0]))
+            year = int(eval(self.lastValues[1]))
+            if month == 1 and v == -1:
+                if year - 1 != 2000:
+                    self.newValues = [repr('12'), repr(str(year - 1))]
+            elif month == 12 and v == 1:
+                if year + 1 != 2101:
+                    self.newValues = [repr('01'), repr(str(year + 1))]
+            else:
+                self.newValues = \
+                    [repr(str(month + v).zfill(2)), self.lastValues[1]]
+
+        elif self.choice == 4:
+            year = int(eval(self.lastValues[0]))
+            newYear = year + v
+            if newYear > 2000 and newYear < 2101:
+                self.newValues = [repr(str(newYear))]
+
+    def setModifiedQuery(self, x):
+        self.setNewValues(x)
+        for i, v in enumerate(self.newValues):
+            self.lastValues[i] = v
+        self.query.set(self.SQL[self.choice].format(*self.newValues))
+
+    def start(self):
+        self.thisDay.select()
+
+    def getQuery(self):
+        return self.query
 
 
 class Program(tk.Frame, object):
@@ -179,7 +318,11 @@ class Program(tk.Frame, object):
         self.table.configure(yscrollcommand=self.scrollbar.set)
         self.scrollbar.grid(row=0, column=9, rowspan=3, sticky='ns')
 
-        self.getAll()
+        self.show = ShowWidget(self)
+        self.show.grid(row=3, column=0, columnspan=9)
+        self.query = self.show.getQuery()
+        self.query.trace('w', self.executeSelect)
+        self.show.start()
 
     def addEvent(self):
         if self.addWindow is None:
@@ -235,21 +378,19 @@ class Program(tk.Frame, object):
                 msgbox.askyesno("Usuwanie wydarzenia",
                                 "Czy na pewno usunąć zaznaczone wydarzenie?"):
             self.events.delete(event[0])
-            self.table.delete(*self.table.get_children())
-            self.getAll()
+            self.executeSelect()
 
     def insert(self, values):
         self.events.add(*values)
-        self.table.delete(*self.table.get_children())
-        self.getAll()
+        self.executeSelect()
 
     def update(self, eId, values):
         self.events.update(*values, eventId=eId)
-        self.table.delete(*self.table.get_children())
-        self.getAll()
+        self.executeSelect()
 
-    def getAll(self):
-        self.listOfEvents = self.events.selectAll()
+    def executeSelect(self, *args):
+        self.table.delete(*self.table.get_children())
+        self.listOfEvents = self.events.executeSelect(self.query.get())
         for event in self.listOfEvents:
             self.table.insert('', 'end', values=event)
 
