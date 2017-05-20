@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import sqlite3
 
 
@@ -12,35 +14,37 @@ class Events(object):
                 CREATE TABLE IF NOT EXISTS events(
                     id INTEGER PRIMARY KEY,
                     date TEXT,
-                    name TEXT,
-                    category TEXT,
-                    priority INTEGER
+                    name TEXT COLLATE NOCASE,
+                    category TEXT COLLATE NOCASE,
+                    priority INTEGER,
+                    duration INTEGER
                 )
             '''
         )
         self.connection.commit()
 
-    def add(self, date, name, category, priority):
+    def insert(self, date, name, category, priority, duration):
         self.cursor.execute(
             '''
-                INSERT INTO events(date, name, category, priority)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO events(date, name, category, priority, duration)
+                VALUES (?, ?, ?, ?, ?)
             ''',
-            (date, name, category, priority)
+            (date, name, category, priority, duration)
         )
         self.connection.commit()
 
-    def update(self, date, name, category, priority, eventId):
+    def update(self, date, name, category, priority, duration, eventId):
         self.cursor.execute(
             '''
                 UPDATE events
                 SET date = ?,
                     name = ?,
                     category = ?,
-                    priority = ?
+                    priority = ?,
+                    duration = ?
                 WHERE id = ?
             ''',
-            (date, name, category, priority, eventId)
+            (date, name, category, priority, duration, eventId)
         )
         self.connection.commit()
 
@@ -48,13 +52,12 @@ class Events(object):
         self.cursor.execute('DELETE FROM events WHERE id=?', (eventId,))
         self.connection.commit()
 
-    def deleteAll(self):
-        self.cursor.execute('DELETE FROM events')
-        self.connection.commit()
-
-    def executeSelect(self, query):
+    def execute(self, query, fetchall=False, commit=False):
         self.cursor.execute(query)
-        return self.cursor.fetchall()
+        if commit:
+            self.connection.commit()
+        if fetchall:
+            return self.cursor.fetchall()
 
     def close(self):
         self.connection.close()

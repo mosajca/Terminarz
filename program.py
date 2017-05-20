@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.messagebox as msgbox
@@ -9,17 +11,15 @@ import events
 class ChoiceWidget(tk.Frame, object):
 
     def __init__(self, parent, name, values):
-        tk.Frame.__init__(self, parent)
+        super().__init__(parent)
         self.config(borderwidth=3, relief=tk.GROOVE)
-
-        self.label = tk.Label(self, text=name)
-        self.label.pack()
+        tk.Label(self, text=name).pack()
 
         self.combobox = ttk.Combobox(self, state='readonly')
         self.combobox['values'] = values
         self.combobox['justify'] = 'center'
         self.combobox.current(0)
-        self.combobox.pack()
+        self.combobox.pack(pady=(0, 2))
 
     def setValues(self, values):
         self.combobox['values'] = values
@@ -37,14 +37,12 @@ class ChoiceWidget(tk.Frame, object):
 class InputWidget(tk.Frame, object):
 
     def __init__(self, parent, name):
-        tk.Frame.__init__(self, parent)
+        super().__init__(parent)
         self.config(borderwidth=3, relief=tk.GROOVE)
-
-        self.label = tk.Label(self, text=name)
-        self.label.pack()
+        tk.Label(self, text=name).pack()
 
         self.entry = tk.Entry(self)
-        self.entry.pack()
+        self.entry.pack(pady=(0, 2))
 
     def setText(self, text):
         self.entry.delete(0, 'end')
@@ -57,11 +55,11 @@ class InputWidget(tk.Frame, object):
 class EventInput(tk.Frame, object):
 
     def __init__(self, parent):
-        tk.Frame.__init__(self, parent)
+        super().__init__(parent)
         self.numberOfDays = {2: 28, 4: 30, 6: 30, 9: 30, 11: 30}
 
         self.year = ChoiceWidget(self, 'rok',
-                                 [str(x) for x in range(2017, 2031)])
+                                 [str(x) for x in range(2001, 2101)])
         self.year.setBind(self.setFebruary)
         self.year.grid(row=0, column=0)
 
@@ -82,9 +80,13 @@ class EventInput(tk.Frame, object):
                                    [str(x).zfill(2) for x in range(60)])
         self.minute.grid(row=1, column=1)
 
+        self.duration = ChoiceWidget(self, 'czas trwania (min)',
+                                     [x for x in range(1441)])
+        self.duration.grid(row=1, column=2)
+
         self.priority = ChoiceWidget(self, 'priorytet',
                                      [x for x in range(1, 6)])
-        self.priority.grid(row=1, column=2)
+        self.priority.grid(row=2, column=2)
 
         self.name = InputWidget(self, 'nazwa')
         self.name.grid(row=2, column=0, sticky='ew')
@@ -93,18 +95,17 @@ class EventInput(tk.Frame, object):
         self.category.grid(row=2, column=1, sticky='ew')
 
         self.button = tk.Button(self, borderwidth=3, relief=tk.GROOVE)
-        self.button.grid(row=2, column=2, sticky='nsew')
-
-        self.grid()
+        self.button.grid(row=3, column=0, columnspan=3, sticky='nsew')
 
     def setValues(self, year, month, day, hour, minute,
-                  priority, name, category):
+                  priority, name, category, duration):
         self.year.setCurrent(year)
         self.month.setCurrent(month)
         self.day.setCurrent(day)
         self.hour.setCurrent(hour)
         self.minute.setCurrent(minute)
         self.priority.setCurrent(priority)
+        self.duration.setCurrent(duration)
         self.name.setText(name)
         self.category.setText(category)
         self.setFebruary()
@@ -134,16 +135,15 @@ class EventInput(tk.Frame, object):
         datetime = ' '.join([date, time])
 
         return (datetime, self.name.getInput(), self.category.getInput(),
-                int(self.priority.getChoice()))
+                int(self.priority.getChoice()), int(self.duration.getChoice()))
 
 
 class ShowWidget(tk.Frame, object):
 
     def __init__(self, parent):
-        tk.Frame.__init__(self, parent)
+        super().__init__(parent)
 
-        self.label = tk.Label(self, text='Pokaż wydarzenia:')
-        self.label.grid(row=0, column=0)
+        tk.Label(self, text='Pokaż wydarzenia:').grid(row=0, column=0)
 
         self.SQL = {
             1: '''SELECT * FROM events WHERE strftime("%j", date) = {} AND
@@ -160,21 +160,18 @@ class ShowWidget(tk.Frame, object):
         self.var = tk.IntVar()
         self.query = tk.StringVar()
 
-        self.thisDay = \
-            tk.Radiobutton(self, text='dzień', variable=self.var, value=1)
+        self.thisDay = tk.Radiobutton(self, text='dzień',
+                                      variable=self.var, value=1)
         self.thisDay.grid(row=0, column=1)
-        self.thisWeek = \
-            tk.Radiobutton(self, text='tydzień', variable=self.var, value=2)
-        self.thisWeek.grid(row=0, column=2)
-        self.thisMonth = \
-            tk.Radiobutton(self, text='miesiąc', variable=self.var, value=3)
-        self.thisMonth.grid(row=0, column=3)
-        self.thisYear = \
-            tk.Radiobutton(self, text='rok', variable=self.var, value=4)
-        self.thisYear.grid(row=0, column=4)
-        self.allEvents = \
-            tk.Radiobutton(self, text='wszystkie', variable=self.var, value=5)
-        self.allEvents.grid(row=0, column=5)
+
+        tk.Radiobutton(self, text='tydzień', variable=self.var,
+                       value=2).grid(row=0, column=2)
+        tk.Radiobutton(self, text='miesiąc', variable=self.var,
+                       value=3).grid(row=0, column=3)
+        tk.Radiobutton(self, text='rok', variable=self.var,
+                       value=4).grid(row=0, column=4)
+        tk.Radiobutton(self, text='wszystkie', variable=self.var,
+                       value=5).grid(row=0, column=5)
 
         self.var.trace('w', self.setQuery)
 
@@ -280,7 +277,7 @@ class ShowWidget(tk.Frame, object):
 class Program(tk.Frame, object):
 
     def __init__(self, parent):
-        tk.Frame.__init__(self, parent)
+        super().__init__(parent)
         self.parent = parent
         self.parent.title('Terminarz')
         self.parent.iconphoto(self.parent, tk.PhotoImage(file='icon.png'))
@@ -289,68 +286,92 @@ class Program(tk.Frame, object):
         self.parent.protocol('WM_DELETE_WINDOW', self.close)
         self.addWindow = None
         self.modifyWindow = None
+        self.prevColumn = ''
+        self.prevPrevColumn = ''
         self.gui()
 
     def gui(self):
-        self.addButton = tk.Button(self, text='dodaj', command=self.addEvent)
-        self.addButton.grid(row=0, column=10, sticky='ew')
-        self.modifyButton = tk.Button(self, text='modyfikuj',
-                                      command=self.modifyEvent)
-        self.modifyButton.grid(row=1, column=10, sticky='ew')
-        self.delButton = tk.Button(self, text='usuń', command=self.deleteEvent)
-        self.delButton.grid(row=2, column=10, sticky='ew')
+        tk.Button(self, text='dodaj', command=self.addEvent). \
+            grid(row=0, column=10, sticky='ew', padx=5)
+        tk.Button(self, text='modyfikuj', command=self.modifyEvent). \
+            grid(row=1, column=10, sticky='ew', padx=5)
+        tk.Button(self, text='usuń', command=self.deleteEvent). \
+            grid(row=2, column=10, sticky='ew', padx=5)
+        tk.Button(self, text='usuń wszystkie', command=self.deleteAll). \
+            grid(row=3, column=10, sticky='ew', padx=5)
 
         self.table = ttk.Treeview(self)
-        self.table['columns'] = \
-            ('id', 'data i godzina', 'nazwa', 'kategoria', 'priorytet')
+        self.table['columns'] = ('id', 'data i godzina', 'nazwa', 'kategoria',
+                                 'priorytet', 'czas trwania (min)')
         self.table['show'] = 'headings'
-        self.table['displaycolumns'] = \
-            ('data i godzina', 'nazwa', 'kategoria', 'priorytet')
+        self.table['displaycolumns'] = ('data i godzina', 'czas trwania (min)',
+                                        'nazwa', 'kategoria', 'priorytet')
         self.table.heading('id', text='id')
-        self.table.heading('nazwa', text='nazwa')
-        self.table.heading('data i godzina', text='data i godzina')
-        self.table.heading('kategoria', text='kategoria')
-        self.table.heading('priorytet', text='priorytet')
-        self.table.grid(row=0, column=0, rowspan=3, columnspan=9)
+        self.table.heading('nazwa', text='nazwa',
+                           command=lambda: self.executeSelect(column='name'))
+        self.table.heading('data i godzina', text='data i godzina',
+                           command=lambda:
+                               self.executeSelect(column='datetime(date)'))
+        self.table.heading('kategoria', text='kategoria',
+                           command=lambda:
+                               self.executeSelect(column='category'))
+        self.table.heading('priorytet', text='priorytet',
+                           command=lambda:
+                               self.executeSelect(column='priority'))
+        self.table.heading('czas trwania (min)', text='czas trwania (min)',
+                           command=lambda:
+                               self.executeSelect(column='duration'))
+        self.table.column('priorytet', width=100)
+        for name in ('data i godzina', 'nazwa', 'kategoria',
+                     'priorytet', 'czas trwania (min)'):
+            self.table.column(name, anchor=tk.CENTER)
+        self.table.grid(row=0, column=0, rowspan=4, columnspan=9)
 
         self.scrollbar = tk.Scrollbar(self)
         self.scrollbar.configure(command=self.table.yview)
         self.table.configure(yscrollcommand=self.scrollbar.set)
-        self.scrollbar.grid(row=0, column=9, rowspan=3, sticky='ns')
+        self.scrollbar.grid(row=0, column=9, rowspan=4, sticky='ns')
 
         self.show = ShowWidget(self)
-        self.show.grid(row=3, column=0, columnspan=9)
+        self.show.grid(row=4, column=0, columnspan=9, pady=5)
         self.query = self.show.getQuery()
         self.query.trace('w', self.executeSelect)
         self.show.start()
 
     def addEvent(self):
+        currentTime = datetime.datetime.now()
         if self.addWindow is None:
             self.addWindow = tk.Toplevel(self)
             self.addWindow.title("Dodaj wydarzenie")
             self.addWindow.protocol('WM_DELETE_WINDOW',
                                     self.addWindow.withdraw)
+            self.addWindow.resizable(tk.FALSE, tk.FALSE)
             self.add = EventInput(self.addWindow)
+            self.add.grid()
             self.add.setButton('dodaj',
                                lambda: self.insert(self.add.getValues()))
         else:
-            self.add.setValues(0, 0, 0, 0, 0, 0, '', '')
             self.addWindow.deiconify()
+
+        self.add.setValues(currentTime.year - 2001, currentTime.month - 1,
+                           currentTime.day - 1, currentTime.hour,
+                           currentTime.minute, 0, '', '', 0)
 
     def modifyEvent(self):
         event = self.table.item(self.table.focus()).get('values')
         if(len(event) != 0):
-            pPriority = event[4] - 1
-            pCategory = event[3]
-            pName = event[2]
+            prevPriority = event[4] - 1
+            prevCategory = event[3]
+            prevName = event[2]
             tmp = event[1].split('-')
-            pMonth = int(tmp[1]) - 1
+            prevMonth = int(tmp[1]) - 1
             tmp2 = tmp[2].split()
-            pDay = int(tmp2[0]) - 1
-            pYear = int(tmp[0]) - 2017
+            prevDay = int(tmp2[0]) - 1
+            prevYear = int(tmp[0]) - 2001
             tmp3 = tmp2[1].split(':')
-            pHour = int(tmp3[0])
-            pMinute = int(tmp3[1])
+            prevHour = int(tmp3[0])
+            prevMinute = int(tmp3[1])
+            prevDuration = event[5]
             eId = event[0]
         else:
             return
@@ -360,17 +381,17 @@ class Program(tk.Frame, object):
             self.modifyWindow.title("Modyfikuj wydarzenie")
             self.modifyWindow.protocol('WM_DELETE_WINDOW',
                                        self.modifyWindow.withdraw)
+            self.modifyWindow.resizable(tk.FALSE, tk.FALSE)
             self.modify = EventInput(self.modifyWindow)
-            self.modify.setValues(pYear, pMonth, pDay, pHour, pMinute,
-                                  pPriority, pName, pCategory)
-            self.modify.setButton('zmień', lambda:
-                                  self.update(eId, self.modify.getValues()))
+            self.modify.grid()
         else:
-            self.modify.setValues(pYear, pMonth, pDay, pHour, pMinute,
-                                  pPriority, pName, pCategory)
-            self.modify.setButton('zmień', lambda:
-                                  self.update(eId, self.modify.getValues()))
             self.modifyWindow.deiconify()
+
+        self.modify.setValues(prevYear, prevMonth, prevDay, prevHour,
+                              prevMinute, prevPriority, prevName,
+                              prevCategory, prevDuration)
+        self.modify.setButton('zmień', lambda:
+                              self.update(eId, self.modify.getValues()))
 
     def deleteEvent(self):
         event = self.table.item(self.table.focus()).get('values')
@@ -380,17 +401,35 @@ class Program(tk.Frame, object):
             self.events.delete(event[0])
             self.executeSelect()
 
+    def deleteAll(self):
+        if len(self.table.get_children()) != 0 and \
+               msgbox.askyesno("Usuwanie wydarzeń",
+                               "Czy na pewno usunąć wszystkie widoczne " +
+                               "wydarzenia?"):
+            query = 'DELETE FROM events' + self.query.get()[20:-23]
+            self.events.execute(query, commit=True)
+            self.executeSelect()
+
     def insert(self, values):
-        self.events.add(*values)
+        self.events.insert(*values)
         self.executeSelect()
 
     def update(self, eId, values):
         self.events.update(*values, eventId=eId)
         self.executeSelect()
 
-    def executeSelect(self, *args):
+    def executeSelect(self, *args, column=None):
         self.table.delete(*self.table.get_children())
-        self.listOfEvents = self.events.executeSelect(self.query.get())
+        query = self.query.get()
+        if column is not None:
+            query = query[:-14] + column
+            if self.prevColumn == column and self.prevPrevColumn != column:
+                query += ' DESC'
+                self.prevPrevColumn = self.prevColumn
+            else:
+                self.prevPrevColumn = ''
+            self.prevColumn = column
+        self.listOfEvents = self.events.execute(query, fetchall=True)
         for event in self.listOfEvents:
             self.table.insert('', 'end', values=event)
 
@@ -398,6 +437,7 @@ class Program(tk.Frame, object):
         self.events.close()
         self.parent.destroy()
 
-root = tk.Tk()
-program = Program(root)
-root.mainloop()
+if __name__ == '__main__':
+    root = tk.Tk()
+    program = Program(root)
+    root.mainloop()
